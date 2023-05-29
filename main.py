@@ -1,15 +1,15 @@
 from solver import Solver
 import os
+# os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 import random
 import numpy as np
-import torch
 import pandas as pd
 import argparse
 from utils import seed_everything
 import config as cfg
 import shutil
 import argparse
-
+# command connect npc: ./npc -server=120.26.57.192:7000 -vkey=15014459253Hwj.. -type=tcp
 # parameter processing
 parser = argparse.ArgumentParser(description='FaceAtrr')
 parser.add_argument('--model_type', choices=[
@@ -32,8 +32,11 @@ parser.add_argument('--pretrained', action='store_true', default=cfg.pretrained)
 parser.add_argument("--loss_type", choices=['BCE_loss', 'focal_loss'], default=cfg.loss_type)
 parser.add_argument("--exp_version",type=str, default=cfg.exp_version)
 parser.add_argument("--load_model_path", default=cfg.load_model_path, type=str)
+# weight hyper parameters
 parser.add_argument("--weight_alpha", default=cfg.weight_global_identity, type=float)
+parser.add_argument("--weight_global_contrastive_identity", default=cfg.weight_global_contrastive_identity, type=float)
 parser.add_argument("--weight_beta", default=cfg.weight_local_identity, type=float)
+parser.add_argument("--weight_lamda", default=cfg.weight_attribute, type=float)
 args = parser.parse_args()
 
 epochs = args.epochs
@@ -46,7 +49,26 @@ pretrained = args.pretrained
 loss_type = args.loss_type
 exp_version = args.exp_version
 model_path = args.load_model_path
-weight = [args.weight_alpha, 1 - args.weight_alpha, args.weight_beta]
+# update to cfg file
+cfg.epochs = args.epochs
+cfg.batch_size = args.batch_size
+cfg.learning_rate_large = args.learning_rate
+cfg.learning_rate_small = args.learning_rate
+cfg.model_type = args.model_type
+cfg.optim_type = args.optim_type
+cfg.momentum = args.momentum
+cfg.pretrained = args.pretrained
+cfg.loss_type = args.loss_type
+cfg.exp_version = args.exp_version
+cfg.load_model_path = args.load_model_path
+# weight parameters
+cfg.weight_global_identity = args.weight_alpha
+cfg.weight_global_contrastive_identity = args.weight_global_contrastive_identity
+cfg.weight_local_identity = args.weight_beta
+cfg.weight_attribute = args.weight_lamda
+
+weight = [cfg.weight_global_identity, cfg.weight_global_contrastive_identity, cfg.weight_local_identity, cfg.weight_attribute]
+print("alpha(weight_global_identity,LossF): " + str(weight[0]) + ", 1 - alpha(weight_global_contrastive_identity,LossC): " + str(weight[1]) + ", beta(weight_local_identity,Lossg): " + str(weight[2]) + ", lamda(weight_attribute,LossA): " + str(weight[3]))
 
 def copy_file():
     # copy the code of the process of training 
@@ -66,6 +88,7 @@ def copy_file():
 #--------------- exe ----------------------------- #
 if __name__ == "__main__":
     # train
+    # torch.autograd.set_detect_anomaly(True)
     seed_everything()
     # # too more params to send.... not a good way....use the config.py to improve it
     solver = Solver(epoches=epochs, batch_size=batch_size, learning_rate=learning_rate, model_type=model_type,
@@ -73,7 +96,8 @@ if __name__ == "__main__":
                     exp_version=exp_version, weight = weight)
     try:
         # # train the model, if the model_path is not none, continue the train
-        solver.test_model(model_path=model_path)
+        copy_file()
+        solver.fit(model_path=model_path)
     except InterruptedError:
         print("early stop...")
         print("save the model dict....")

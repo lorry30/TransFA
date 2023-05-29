@@ -6,6 +6,7 @@ import os
 import torch
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')
+# import cv2 
 
 def timeSince(since):
     """
